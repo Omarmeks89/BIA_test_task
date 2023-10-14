@@ -21,7 +21,7 @@ _dto = {
 
 class _Preset(BaseModel):
     """Some preset for several days at week."""
-    days_of_week: list[str, ...]
+    days_of_week: list[str]
 
 
 class Increace(_Preset):
@@ -34,8 +34,8 @@ class Decreace(_Preset):
 
 class CalculateSchedule(BaseModel):
     """Request DTO."""
-    time_slots: list[str, ...]
-    workers: list[str, ...]
+    time_slots: list[str]
+    workers: list[str]
     working_hrs_month_max: int
     working_hours: int
     increase_load_at: Increace

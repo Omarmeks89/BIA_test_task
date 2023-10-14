@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class AppSettings(BaseSettings):
     """Default app settings for tests."""
-    app_run_path: str = ""
+    app_run_path: str = "src:src"
     reload: bool = True
 
     model_config = SettingsConfigDict(
