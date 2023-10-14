@@ -45,11 +45,12 @@ class RingBuffer:
 
     def __init__(self, st_day: str, days_cnt: int) -> None:
         self._frames = type(self)._def_payload_days
-        self._start_day = st_day
         self._days_cnt = days_cnt
         self._days = list(self._frames.keys())
-        self._pos = self._set_st_pos(self._start_day)
         self._curr_day_no = 0
+        if self._validate_start_day(st_day):
+            self._start_day = st_day
+        self._pos = self._set_st_pos(self._start_day)
 
     @property
     def day_no(self) -> int:
@@ -64,6 +65,12 @@ class RingBuffer:
     def next(self) -> bool:
         """return true if curr pos isn`t a last day in month."""
         return self._curr_day_no < self._days_cnt
+
+    def _validate_start_day(self, day: str) -> bool:
+        if day not in self._days:
+            msg = f"Invalid day-name: {day}."
+            raise InvalidScheduleParameter(msg)
+        return True
 
     def frame(self) -> int:
         """return frame by day-name."""
@@ -175,6 +182,18 @@ class Worker(BaseWorker):
         self._w_hours += self._mtime
 
 
+async def _check_enough_workers(wcnt: int, frames: int) -> None:
+    """compare workers count with frames count.
+    If workers < (f * 2 - 1), raised InvalidScheduleParameter()."""
+    if wcnt < (frames * 2 - 1):
+        msg = (
+                f"Not enough workers ({wcnt}) for "
+                f"frames ({frames}). Need min {frames * 2 - 1} workers."
+                )
+        raise InvalidScheduleParameter(msg)
+    return
+
+
 async def _calculate_whours_per_day(
         max_hrs_month: int,
         workers_cnt: int,
@@ -255,6 +274,12 @@ async def calculate_schedule(
         request: CalculateSchedule,
         ) -> Iterable[WorkerSchedule]:
     _heap, schedules = [], []
+    enough_wrk = asyncio.create_task(
+            _check_enough_workers(
+                len(request.workers),
+                len(request.time_slots),
+                ),
+            )
     whours_p_day = asyncio.create_task(
             _calculate_whours_per_day(
                 request.working_hrs_month_max,
@@ -271,7 +296,7 @@ async def calculate_schedule(
                 request.working_hours,
                 ),
             )
-    await asyncio.gather(whours_p_day, fill_heap)
+    await asyncio.gather(whours_p_day, fill_heap, enough_wrk)
     if whours_p_day.done():
         buffer = RingBuffer(
                 request.start_schedule_from_day,
