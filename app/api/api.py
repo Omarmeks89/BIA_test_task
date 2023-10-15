@@ -8,9 +8,10 @@ from utils.exceptions import InvalidScheduleParameter
 
 
 scheduler = APIRouter(prefix="/scheduler", tags=["schedule", ])
+_API_VERS: str = "1.0"
 
 
-@scheduler.post("/schedule.json")
+@scheduler.post("/{_API_VERS}/schedule.json")
 async def get_schedule(
         s_request: CalculateSchedule,
         ) -> ScheduleResponce:
