@@ -1,5 +1,4 @@
 import copy
-import asyncio
 import heapq
 from typing import Iterable
 from typing import TypeVar
@@ -43,23 +42,25 @@ class RingBuffer:
         "Sun": 0,
     }
 
-    def __init__(self, st_day: str, days_cnt: int) -> None:
+    def __init__(self, start_day: str, days_cnt: int) -> None:
         self._frames = type(self)._def_payload_days
         self._days_cnt = days_cnt
         self._days = list(self._frames.keys())
         self._curr_day_no = 0
-        if self._validate_start_day(st_day):
-            self._start_day = st_day
+        if self._validate_start_day(start_day):
+            self._start_day = start_day
         self._pos = self._set_st_pos(self._start_day)
 
     @property
     def day_no(self) -> int:
+        """return current day."""
         return self._curr_day_no
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}(day={self._days[self._pos]})"
 
     def _set_st_pos(self, day: str) -> int:
+        """return index of current day."""
         return self._days.index(day)
 
     def next(self) -> bool:
@@ -68,7 +69,7 @@ class RingBuffer:
 
     def _validate_start_day(self, day: str) -> bool:
         if day not in self._days:
-            msg = f"Invalid day-name: {day}."
+            msg = f"Invalid day name: {day}."
             raise InvalidScheduleParameter(msg)
         return True
 
@@ -89,8 +90,7 @@ class RingBuffer:
             ) -> None:
         """set frame size = workers count per current day.
         If we have increase or decreace count, we apply it here."""
-        inc_days = list(inc.days_of_week)
-        dec_days = list(dec.days_of_week)
+        inc_days, dec_days = list(inc.days_of_week), list(dec.days_of_week)
         for day in self._days:
             self._frames[day] = dframe_s
             if inc_days and day in inc_days:
@@ -280,48 +280,37 @@ def calc_schedule(
 async def calculate_schedule(
         request: CalculateSchedule,
         ) -> Iterable[WorkerSchedule]:
+    """top-level func."""
     _heap, schedules = [], []
     workers = list(request.workers)
     slots = list(request.time_slots)
     len_w, len_s = len(workers), len(slots)
-    enough_wrk = asyncio.create_task(
-            _check_enough_workers(
-                len_w,
-                len_s,
-                ),
-            )
-    whours_p_day = asyncio.create_task(
-            _calculate_whours_per_day(
+    await _check_enough_workers(len_w, len_s)
+    whours_p_day = await _calculate_whours_per_day(
                 request.working_hrs_month_max,
                 len_w,
                 request.days_in_month,
-                ),
-            )
-    fill_heap = asyncio.create_task(
-            _fill_heap(
+                )
+    await _fill_heap(
                 _heap,
                 workers,
                 request.working_hrs_month_max,
                 request.days_in_month,
                 request.working_hours,
-                ),
-            )
-    await asyncio.gather(whours_p_day, fill_heap, enough_wrk)
-    if whours_p_day.done():
-        buffer = RingBuffer(
-                request.start_schedule_from_day,
-                request.days_in_month,
                 )
-        _fill_payload(whours_p_day.result(), buffer, request)
-        calc_schedule(buffer, _heap, slots)
-        for w in _heap:
-            schedules.append(
-                    WorkerSchedule(
-                        wname=w.name,
-                        worked=w.hours_worked,
-                        remaining_hrs=w.remaining_hrs,
-                        frames=w.frames,
-                        )
+    buffer = RingBuffer(
+            request.start_schedule_from_day,
+            request.days_in_month,
+            )
+    _fill_payload(whours_p_day, buffer, request)
+    calc_schedule(buffer, _heap, slots)
+    for w in _heap:
+        schedules.append(
+                WorkerSchedule(
+                    wname=w.name,
+                    worked=w.hours_worked,
+                    remaining_hrs=w.remaining_hrs,
+                    frames=w.frames,
                     )
-        return schedules
-    raise Exception("Unexpected error.")
+                )
+    return schedules
