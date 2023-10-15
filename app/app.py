@@ -5,7 +5,10 @@ from api.api import scheduler
 from settings import AppSettings
 
 
-app = FastAPI()
+app = FastAPI(
+        title="BIA Technologies test task.",
+        version="0.1.0",
+        )
 app.include_router(scheduler)
 app_set = AppSettings()
 

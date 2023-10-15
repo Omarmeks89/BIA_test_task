@@ -89,11 +89,13 @@ class RingBuffer:
             ) -> None:
         """set frame size = workers count per current day.
         If we have increase or decreace count, we apply it here."""
+        inc_days = list(inc.days_of_week)
+        dec_days = list(dec.days_of_week)
         for day in self._days:
             self._frames[day] = dframe_s
-            if inc and day in inc.days_of_week:
+            if inc_days and day in inc_days:
                 self._frames[day] += inc.inc_workers_on
-            if dec and day in dec.days_of_week:
+            if dec_days and day in dec_days:
                 if (self._frames[day] - dec.dec_workers_on) >= 2:
                     self._frames[day] -= dec.dec_workers_on
 
@@ -160,6 +162,8 @@ class Worker(BaseWorker):
             ) -> None:
         super().__init__(name, hpm)
         self._days = days_in_month
+        # control list for exclude duplicates
+        self._w_ctrl = [0] * self._days
         self._mtime = mtime
         self._frames = {}
 
@@ -177,6 +181,9 @@ class Worker(BaseWorker):
     def work_in_frame(self, frame: str, day_by_ord: int) -> None:
         if frame not in self._frames:
             self._frames[frame] = [0] * self._days
+        if self._w_ctrl[day_by_ord - 1]:
+            return None
+        self._w_ctrl[day_by_ord - 1] = True
         self._frames[frame][day_by_ord - 1] = 1
         self._wh_per_month -= self._mtime
         self._w_hours += self._mtime
@@ -274,23 +281,26 @@ async def calculate_schedule(
         request: CalculateSchedule,
         ) -> Iterable[WorkerSchedule]:
     _heap, schedules = [], []
+    workers = list(request.workers)
+    slots = list(request.time_slots)
+    len_w, len_s = len(workers), len(slots)
     enough_wrk = asyncio.create_task(
             _check_enough_workers(
-                len(request.workers),
-                len(request.time_slots),
+                len_w,
+                len_s,
                 ),
             )
     whours_p_day = asyncio.create_task(
             _calculate_whours_per_day(
                 request.working_hrs_month_max,
-                len(request.workers),
+                len_w,
                 request.days_in_month,
                 ),
             )
     fill_heap = asyncio.create_task(
             _fill_heap(
                 _heap,
-                request.workers,
+                workers,
                 request.working_hrs_month_max,
                 request.days_in_month,
                 request.working_hours,
@@ -303,7 +313,7 @@ async def calculate_schedule(
                 request.days_in_month,
                 )
         _fill_payload(whours_p_day.result(), buffer, request)
-        calc_schedule(buffer, _heap, request.time_slots)
+        calc_schedule(buffer, _heap, slots)
         for w in _heap:
             schedules.append(
                     WorkerSchedule(

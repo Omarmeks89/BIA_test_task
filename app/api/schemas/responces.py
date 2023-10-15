@@ -1,3 +1,5 @@
+from typing import Iterable
+
 from pydantic import BaseModel
 
 
@@ -6,9 +8,9 @@ class WorkerSchedule(BaseModel):
     wname: str
     worked: int
     remaining_hrs: int
-    frames: dict[str, list[int]]
+    frames: dict[str, Iterable[int]]
 
 
 class ScheduleResponce(BaseModel):
     """Base responce with calculated schedule."""
-    workers: list[WorkerSchedule]
+    workers: Iterable[WorkerSchedule]
