@@ -9,10 +9,12 @@ class _Preset(BaseModel):
 
 
 class Increace(_Preset):
+    """class for increase workers count."""
     inc_workers_on: int
 
 
 class Decreace(_Preset):
+    """class for decrease workers count."""
     dec_workers_on: int
 
 

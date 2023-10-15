@@ -11,7 +11,7 @@ scheduler = APIRouter(prefix="/scheduler", tags=["schedule", ])
 _API_VERS: str = "1.0"
 
 
-@scheduler.post("/{_API_VERS}/schedule.json")
+@scheduler.post(f"/{_API_VERS}/schedule.json")
 async def get_schedule(
         s_request: CalculateSchedule,
         ) -> ScheduleResponce:
